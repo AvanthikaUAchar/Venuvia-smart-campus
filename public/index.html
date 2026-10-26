@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Venuvia | Hall Booking & Conflict-Free Calendar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
+</head>
+<body class="h-full flex flex-col antialiased bg-slate-950 text-slate-100">
+
+  <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none"></div>
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40 w-full bg-slate-900/95 backdrop-blur border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3 cursor-pointer" onclick="navigateTo('landing')">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/20">V</div>
+        <div>
+          <span class="text-xl font-extrabold text-white">Venuvia</span>
+          <span class="ml-2 text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-bold">NMAMIT</span>
+        </div>
+      </div>
+
+      <nav class="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-300">
+        <button onclick="navigateTo('landing')" class="px-4 py-2 rounded-full hover:bg-slate-800 transition">Home</button>
+        <button onclick="navigateTo('calendar')" class="px-4 py-2 rounded-full hover:bg-slate-800 transition">Halls & Availability Calendar</button>
+        <button id="dbNavBtn" onclick="navigateTo('dbViewer')" class="hidden px-4 py-2 rounded-full bg-amber-500/10 text-amber-400 font-semibold border border-amber-500/20">
+          <i class="fa-solid fa-database mr-1"></i> Admin Database Viewer
+        </button>
+      </nav>
+
+      <div id="authHeaderControls">
+        <button onclick="openAuthModal('login')" class="px-4 py-2 text-sm font-semibold text-slate-200 hover:text-white">Sign In</button>
+        <button onclick="openAuthModal('register')" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition">Register</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
+
+    <!-- HOME VIEW -->
+    <section id="view-landing" class="view-panel space-y-8">
+      <div class="p-10 sm:p-16 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4">
+        <span class="px-3.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
+          CONFLICT-FREE HIERARCHICAL PRIORITY SCHEDULING
+        </span>
+        <h1 class="text-4xl sm:text-6xl font-extrabold text-white">NMAMIT Campus Venue Portal</h1>
+        <p class="text-slate-400 max-w-xl mx-auto text-sm sm:text-base">
+          No booking overlaps allowed. Higher-priority roles can preempt slot clashes automatically.
+        </p>
+        <div class="flex justify-center gap-4 pt-4">
+          <button onclick="triggerBookingCheck()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg transition">+ Reserve a Venue</button>
+          <button onclick="navigateTo('calendar')" class="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm rounded-xl transition">Explore Hall Cards Calendar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CALENDAR & HALL CARDS VIEW -->
+    <section id="view-calendar" class="view-panel hidden space-y-8">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Hall Cards & Availability Calendar</h1>
+          <p class="text-xs sm:text-sm text-slate-400 mt-1">Click on any hall card below to check booked dates and attendee capacities.</p>
+        </div>
+        <button onclick="triggerBookingCheck()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition shadow-md">+ Reserve Venue</button>
+      </div>
+
+      <!-- HALL CARDS DASHBOARD GRID -->
+      <div class="space-y-4">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-building text-blue-400"></i> Campus Halls Dashboard
+        </h2>
+        <div id="hallsDashboardGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+      </div>
+
+      <!-- MASTER SCHEDULE LIST -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-calendar-days text-emerald-400"></i> All Scheduled Bookings & Priority Hierarchy
+        </h2>
+        <div id="calendarEventsList" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- ADMIN DATABASE VIEWER VIEW -->
+    <section id="view-dbViewer" class="view-panel hidden space-y-8">
+      <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+        <span><i class="fa-solid fa-shield-halved mr-2"></i> Restricted Administrator Control Panel (`avanthika@nmamit.in`)</span>
+        <button onclick="loadData()" class="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 rounded font-bold transition">Refresh Database</button>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <h2 class="text-lg font-bold text-white"><i class="fa-solid fa-users text-blue-400 mr-2"></i>Table: `users` (Registered Accounts)</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 uppercase">
+              <tr><th class="p-3">ID</th><th class="p-3">Name</th><th class="p-3">Email</th><th class="p-3">Department</th><th class="p-3">Role</th></tr>
+            </thead>
+            <tbody id="dbUsersTableBody" class="divide-y divide-slate-800/60 text-slate-300"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <h2 class="text-lg font-bold text-white"><i class="fa-solid fa-calendar-check text-emerald-400 mr-2"></i>Table: `bookings` (Venue Approvals & Requests)</h2>
+        <div id="adminBookingsList" class="space-y-3"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL 1: HALL DETAILS & BOOKED DATES BREAKDOWN -->
+  <div id="hallDetailsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 relative shadow-2xl max-h-[90vh] overflow-y-auto">
+      <button onclick="closeHallDetailsModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white text-lg">✕</button>
+
+      <div class="border-b border-slate-800 pb-4 mb-5">
+        <span id="modalHallCapacityBadge" class="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold uppercase">Capacity: 1200</span>
+        <h2 id="modalHallName" class="text-2xl font-bold text-white mt-1">Sambram Auditorium</h2>
+        <p id="modalHallLocation" class="text-xs text-slate-400 mt-0.5">Main Academic Block</p>
+      </div>
+
+      <div class="space-y-4">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-regular fa-calendar-check text-blue-400"></i> Reserved Dates & Scheduled Events
+        </h3>
+
+        <div id="modalBookedDatesList" class="space-y-3 max-h-72 overflow-y-auto pr-1"></div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-slate-800 flex justify-between items-center">
+        <button onclick="closeHallDetailsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition">Close</button>
+        <button id="modalQuickBookBtn" onclick="" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg transition">+ Book This Hall</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: AUTHENTICATION MODAL -->
+  <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 relative shadow-2xl">
+      <button onclick="closeAuthModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white">✕</button>
+      <h2 id="authModalTitle" class="text-xl font-bold text-white mb-1">Sign In</h2>
+      <p id="authModalSubtitle" class="text-xs text-slate-400 mb-4">Access your NMAMIT portal account</p>
+
+      <form id="authForm" onsubmit="handleAuthSubmit(event)" class="space-y-3">
+        <div id="nameFieldGroup" class="hidden">
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Full Name *</label>
+          <input type="text" id="authName" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Email Address *</label>
+          <input type="email" id="authEmail" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500" placeholder="e.g. avanthika@nmamit.in">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Password *</label>
+          <input type="password" id="authPassword" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500" placeholder="••••••••">
+        </div>
+        <div id="registerFieldsGroup" class="hidden space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Department *</label>
+            <input type="text" id="authDept" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500" placeholder="e.g. Information Science">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Role / Priority Tier *</label>
+            <select id="authRole" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="Campus Admin">Administrator (Tier 1)</option>
+              <option value="Principal">Principal (Tier 2)</option>
+              <option value="Faculty / Lecturer">Faculty / Lecturer (Tier 3)</option>
+              <option value="Student Coordinator">Student / Club (Tier 4)</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="authAlert" class="hidden p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs"></div>
+
+        <button type="submit" id="authSubmitBtn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition">Sign In</button>
+      </form>
+
+      <button onclick="toggleAuthMode()" id="authToggleBtn" class="w-full text-center mt-3 text-xs text-blue-400 hover:text-blue-300 font-semibold">
+        Don't have an account? Register
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 3: BOOKING MODAL -->
+  <div id="bookingModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-6 relative shadow-2xl">
+      <button onclick="closeBookingModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white">✕</button>
+      <h2 class="text-xl font-bold text-white mb-1">Reserve a Campus Venue</h2>
+      <p class="text-xs text-slate-400 mb-4">Logged in as: <span id="bookingUserBadge" class="text-blue-400 font-bold">User</span></p>
+
+      <form onsubmit="handleBookingSubmit(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Venue *</label>
+          <select id="bookVenue" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none">
+            <option value="v1">Sambram Auditorium (Cap: 1200)</option>
+            <option value="v2">Sadananda Hall (Cap: 350)</option>
+            <option value="v3">Amphi Open Theatre (Cap: 2500)</option>
+            <option value="v4">Phalguni Hall (Cap: 250)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Event Title *</label>
+          <input type="text" id="bookTitle" required placeholder="e.g. ISE Department Faculty Lecture" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Estimated Attendees *</label>
+          <input type="number" id="bookAttendees" required min="1" placeholder="e.g. 150" class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Date *</label>
+            <input type="date" id="bookDate" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Time Slot *</label>
+            <input type="text" id="bookTime" value="09:00 AM - 01:00 PM" required class="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition">Submit Booking Request</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3000/api';
+    let currentUser = null;
+    let authMode = 'login';
+    let allBookings = [];
+
+    const HALLS_DATA = [
+      { id: 'v1', name: 'Sambram Auditorium', capacity: 1200, location: 'Main Academic Block' },
+      { id: 'v2', name: 'Sadananda Hall', capacity: 350, location: 'Administrative Block, Floor 1' },
+      { id: 'v3', name: 'Amphi Open Theatre', capacity: 2500, location: 'Central Quadrangle' },
+      { id: 'v4', name: 'Phalguni Hall', capacity: 250, location: 'PG Block Floor 2' }
+    ];
+
+    const VENUE_NAMES = {
+      'v1': 'Sambram Auditorium',
+      'v2': 'Sadananda Hall',
+      'v3': 'Amphi Open Theatre',
+      'v4': 'Phalguni Hall'
+    };
+
+    function triggerBookingCheck() {
+      if (!currentUser) {
+        showToast('Authentication Required: Please register or sign in before booking a venue.', 'error');
+        openAuthModal('login');
+      } else {
+        openBookingModal();
+      }
+    }
+
+    function openAuthModal(mode) {
+      authMode = mode;
+      document.getElementById('authModal').classList.remove('hidden');
+      document.getElementById('authAlert').classList.add('hidden');
+      if (mode === 'register') {
+        document.getElementById('authModalTitle').innerText = 'Register Account';
+        document.getElementById('authModalSubtitle').innerText = 'Create a new NMAMIT portal user';
+        document.getElementById('nameFieldGroup').classList.remove('hidden');
+        document.getElementById('registerFieldsGroup').classList.remove('hidden');
+        document.getElementById('authSubmitBtn').innerText = 'Register Account';
+        document.getElementById('authToggleBtn').innerText = 'Already registered? Sign In';
+      } else {
+        document.getElementById('authModalTitle').innerText = 'Sign In';
+        document.getElementById('authModalSubtitle').innerText = 'Access your NMAMIT portal account';
+        document.getElementById('nameFieldGroup').classList.add('hidden');
+        document.getElementById('registerFieldsGroup').classList.add('hidden');
+        document.getElementById('authSubmitBtn').innerText = 'Sign In';
+        document.getElementById('authToggleBtn').innerText = "Don't have an account? Register";
+      }
+    }
+
+    function toggleAuthMode() { openAuthModal(authMode === 'login' ? 'register' : 'login'); }
+    function closeAuthModal() { document.getElementById('authModal').classList.add('hidden'); }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value;
+      const alertBox = document.getElementById('authAlert');
+
+      if (authMode === 'register') {
+        const name = document.getElementById('authName').value.trim();
+        const department = document.getElementById('authDept').value.trim();
+        const role = document.getElementById('authRole').value;
+
+        try {
+          const res = await fetch(`${API}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password, department, role })
+          });
+          const data = await res.json();
+
+          if (!res.ok) {
+            alertBox.innerText = data.error;
+            alertBox.classList.remove('hidden');
+            if (data.alreadyRegistered) {
+              setTimeout(() => { openAuthModal('login'); document.getElementById('authEmail').value = email; }, 2000);
+            }
+            return;
+          }
+          showToast('Registration successful! Please sign in.', 'success');
+          openAuthModal('login');
+        } catch (err) {
+          alertBox.innerText = 'Server error. Is server.js running?';
+          alertBox.classList.remove('hidden');
+        }
+      } else {
+        try {
+          const res = await fetch(`${API}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          const data = await res.json();
+          if (!res.ok) { alertBox.innerText = data.error; alertBox.classList.remove('hidden'); return; }
+
+          currentUser = data.user;
+          updateUI();
+          closeAuthModal();
+          showToast(`Welcome ${currentUser.name}! You can now reserve venues.`, 'success');
+          loadData();
+        } catch (err) {
+          alertBox.innerText = 'Server error. Is server.js running?';
+          alertBox.classList.remove('hidden');
+        }
+      }
+    }
+
+    function updateUI() {
+      const header = document.getElementById('authHeaderControls');
+      const dbNav = document.getElementById('dbNavBtn');
+
+      if (currentUser) {
+        header.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-white">${currentUser.name} (${currentUser.role})</span>
+            <button onclick="logout()" class="text-xs text-rose-400 hover:text-rose-300 font-semibold">Sign Out</button>
+          </div>
+        `;
+
+        if (currentUser.email === 'avanthika@nmamit.in') {
+          dbNav.classList.remove('hidden');
+        } else {
+          dbNav.classList.add('hidden');
+        }
+      } else {
+        header.innerHTML = `
+          <button onclick="openAuthModal('login')" class="px-4 py-2 text-sm text-slate-200 hover:text-white">Sign In</button>
+          <button onclick="openAuthModal('register')" class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-xl">Register</button>
+        `;
+        dbNav.classList.add('hidden');
+      }
+    }
+
+    function logout() {
+      currentUser = null;
+      updateUI();
+      navigateTo('landing');
+      showToast('Signed out successfully.', 'info');
+    }
+
+    async function loadData() {
+      try {
+        const res = await fetch(`${API}/bookings`);
+        allBookings = await res.json();
+
+        renderHallsDashboard();
+
+        document.getElementById('calendarEventsList').innerHTML = allBookings.map(b => `
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+                  b.priority_rank === 1 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                  b.priority_rank === 2 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                  b.priority_rank === 3 ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
+                  'bg-blue-500/20 text-blue-300'
+                }">${b.priority_label}</span>
+                <h4 class="text-sm font-bold text-white">${b.event_title}</h4>
+              </div>
+              <p class="text-xs text-slate-400">${b.venue_name} • ${b.date} • ${b.start_time} • Attendees: <span class="text-slate-200 font-bold">${b.attendees || 'N/A'}</span> • Organizer: ${b.organizer}</p>
+            </div>
+            <span class="text-xs font-bold px-2.5 py-1 rounded-full ${
+              b.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400' :
+              b.status === 'Rejected' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+              'bg-amber-500/10 text-amber-400'
+            }">${b.status}</span>
+          </div>
+        `).join('');
+
+        if (currentUser && currentUser.email === 'avanthika@nmamit.in') {
+          const usersRes = await fetch(`${API}/admin/users`, { headers: { 'admin-email': currentUser.email } });
+          const users = await usersRes.json();
+          document.getElementById('dbUsersTableBody').innerHTML = users.map(u => `
+            <tr><td class="p-3">#${u.id}</td><td class="p-3 font-semibold">${u.name}</td><td class="p-3 text-blue-400">${u.email}</td><td class="p-3">${u.department}</td><td class="p-3">${u.role}</td></tr>
+          `).join('');
+
+          document.getElementById('adminBookingsList').innerHTML = allBookings.map(b => `
+            <div class="p-3.5 bg-slate-950 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs border border-slate-800">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold text-[10px] border border-blue-500/20">${b.venue_name}</span>
+                  <b class="text-slate-100 text-sm">${b.event_title}</b>
+                </div>
+                <p class="text-slate-400">
+                  <i class="fa-solid fa-calendar mr-1"></i>${b.date} (${b.start_time}) • 
+                  <span class="text-slate-300 font-semibold">Attendees: ${b.attendees || 0}</span> • 
+                  Role: ${b.priority_label} • User: ${b.user_email}
+                </p>
+              </div>
+              <div>
+                ${b.status === 'Approved' ? `
+                  <span class="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded font-bold">Approved</span>
+                ` : b.status === 'Rejected' ? `
+                  <span class="px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded font-bold">Rejected</span>
+                ` : `
+                  <div class="flex gap-2">
+                    <button onclick="updateStatus(${b.id}, 'Approved')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-bold transition">Approve</button>
+                    <button onclick="updateStatus(${b.id}, 'Rejected')" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 rounded text-white font-bold transition">Reject</button>
+                  </div>
+                `}
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load data:', err);
+      }
+    }
+
+    function renderHallsDashboard() {
+      const container = document.getElementById('hallsDashboardGrid');
+      if (!container) return;
+
+      container.innerHTML = HALLS_DATA.map(hall => {
+        const hallBookings = allBookings.filter(b => b.venue_id === hall.id && b.status !== 'Rejected');
+        const count = hallBookings.length;
+
+        return `
+          <div onclick="openHallDetailsModal('${hall.id}')" class="p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 transition cursor-pointer group hover:bg-slate-900/90 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold">
+                  Capacity: ${hall.capacity}
+                </span>
+                <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-500 group-hover:text-blue-400 transition"></i>
+              </div>
+              <h3 class="text-base font-bold text-white group-hover:text-blue-400 transition">${hall.name}</h3>
+              <p class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-location-dot text-slate-500 mr-1"></i>${hall.location}</p>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <span class="text-slate-400">Reserved Slots:</span>
+              <span class="font-extrabold ${count > 0 ? 'text-amber-400' : 'text-emerald-400'}">${count} ${count === 1 ? 'Date Booked' : 'Dates Booked'}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openHallDetailsModal(hallId) {
+      const hall = HALLS_DATA.find(h => h.id === hallId);
+      if (!hall) return;
+
+      const hallBookings = allBookings.filter(b => b.venue_id === hallId && b.status !== 'Rejected');
+
+      document.getElementById('modalHallName').innerText = hall.name;
+      document.getElementById('modalHallLocation').innerText = hall.location;
+      document.getElementById('modalHallCapacityBadge').innerText = `Capacity: ${hall.capacity} Seats`;
+
+      const listContainer = document.getElementById('modalBookedDatesList');
+
+      if (hallBookings.length === 0) {
+        listContainer.innerHTML = `<div class="p-6 text-center text-xs text-slate-500 bg-slate-950 rounded-2xl border border-slate-800">No active dates booked for this hall. It is available!</div>`;
+      } else {
+        listContainer.innerHTML = hallBookings.map(b => `
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-blue-400"><i class="fa-solid fa-calendar text-xs mr-1.5"></i>Date: ${b.date}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+                b.priority_rank === 1 ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-800 text-slate-300'
+              }">${b.priority_label}</span>
+            </div>
+            <h4 class="text-xs font-bold text-white">${b.event_title}</h4>
+            <div class="flex justify-between items-center text-[11px] text-slate-400 pt-0.5">
+              <span>Time: ${b.start_time}</span>
+              <span class="text-slate-200 font-semibold">Attendees: ${b.attendees || 'N/A'}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      const quickBtn = document.getElementById('modalQuickBookBtn');
+      quickBtn.onclick = function() {
+        closeHallDetailsModal();
+        if (!currentUser) {
+          showToast('Authentication Required: Please register or sign in before booking a venue.', 'error');
+          openAuthModal('login');
+        } else {
+          openBookingModal();
+          document.getElementById('bookVenue').value = hallId;
+        }
+      };
+
+      document.getElementById('hallDetailsModal').classList.remove('hidden');
+    }
+
+    function closeHallDetailsModal() {
+      document.getElementById('hallDetailsModal').classList.add('hidden');
+    }
+
+    async function updateStatus(id, status) {
+      await fetch(`${API}/bookings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, admin_email: currentUser.email })
+      });
+      showToast(`Booking ${status}`, 'success');
+      loadData();
+    }
+
+    function openBookingModal() {
+      if (!currentUser) {
+        showToast('Authentication Required: Please register or sign in before booking a venue.', 'error');
+        openAuthModal('login');
+        return;
+      }
+      document.getElementById('bookingUserBadge').innerText = `${currentUser.name} (${currentUser.role})`;
+      document.getElementById('bookingModal').classList.remove('hidden');
+    }
+
+    function closeBookingModal() { document.getElementById('bookingModal').classList.add('hidden'); }
+
+    async function handleBookingSubmit(e) {
+      e.preventDefault();
+      if (!currentUser) {
+        showToast('Authentication Required: Please register or sign in before booking a venue.', 'error');
+        openAuthModal('login');
+        return;
+      }
+
+      const venueId = document.getElementById('bookVenue').value;
+
+      const payload = {
+        venue_id: venueId,
+        venue_name: VENUE_NAMES[venueId] || 'Sambram Auditorium',
+        event_title: document.getElementById('bookTitle').value,
+        attendees: parseInt(document.getElementById('bookAttendees').value) || 0,
+        date: document.getElementById('bookDate').value,
+        start_time: document.getElementById('bookTime').value,
+        end_time: '01:00 PM',
+        organizer: currentUser.name,
+        creator_role: currentUser.role,
+        user_email: currentUser.email
+      };
+
+      try {
+        const res = await fetch(`${API}/bookings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          showToast('Booking submitted and saved without conflicts!', 'success');
+          closeBookingModal();
+          loadData();
+        } else {
+          showToast(data.error || 'Conflict Error: Slot already taken.', 'error');
+        }
+      } catch (err) {
+        showToast('Network error: Could not connect to backend server.', 'error');
+      }
+    }
+
+    function navigateTo(id) {
+      document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById(`view-${id}`).classList.remove('hidden');
+    }
+
+    function showToast(msg, type='info') {
+      const c = document.getElementById('toastContainer');
+      const t = document.createElement('div');
+      t.className = `p-3 rounded-xl text-xs font-bold text-white shadow-2xl ${
+        type === 'success' ? 'bg-emerald-950 border border-emerald-600' :
+        type === 'error' ? 'bg-rose-950 border border-rose-600' : 'bg-slate-900 border border-slate-700'
+      }`;
+      t.innerText = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 4000);
+    }
+
+    window.onload = loadData;
+  </script>
+</body>
+</html>
